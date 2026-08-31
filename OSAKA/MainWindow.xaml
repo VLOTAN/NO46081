@@ -1,0 +1,972 @@
+<Window x:Class="OSAKA.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:local="clr-namespace:OSAKA"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        mc:Ignorable="d"
+        Title="OSAKA" Height="1080" Width="1920"
+        WindowState="Maximized"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        Icon="pack://application:,,,/images/logo.ico"
+        Background="#202020"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        >
+
+
+    <!-- CSS Transform for the WebView content makes its rendering skewed but mouse interactions match WPF container -->
+    <Window.Resources>
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2C2C2C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontFamily" Value="{StaticResource ShinonomeFont}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3E3E3E"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Invisible Round Button Style (Hit-test only) -->
+        <Style x:Key="InvisibleRoundButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Close Button Area Animation -->
+        <Storyboard x:Key="SlideDownAnimation">
+            <DoubleAnimation Storyboard.TargetName="TopMenuArea" 
+                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" 
+                             To="0" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+        
+        <Storyboard x:Key="SlideUpAnimation">
+            <DoubleAnimation Storyboard.TargetName="TopMenuArea" 
+                              Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" 
+                              To="-100" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <Storyboard x:Key="HanshinScoreRotateStoryboard">
+
+            <DoubleAnimation
+                Storyboard.TargetName="HanshinScoreRotate"
+                Storyboard.TargetProperty="Angle"
+                From="0"
+                To="45"
+                Duration="0:0:0.15" />
+
+            <DoubleAnimation
+                Storyboard.TargetName="HanshinScoreRotate"
+                Storyboard.TargetProperty="Angle"
+                From="45"
+                To="90"
+                BeginTime="0:0:0.15"
+                Duration="0:0:0.15" />
+
+            <DoubleAnimation
+                Storyboard.TargetName="HanshinScoreRotate"
+                Storyboard.TargetProperty="Angle"
+                From="90"
+                To="135"
+                BeginTime="0:0:0.30"
+                Duration="0:0:0.15" />
+
+            <DoubleAnimation
+                Storyboard.TargetName="HanshinScoreRotate"
+                Storyboard.TargetProperty="Angle"
+                From="135"
+                To="180"
+                BeginTime="0:0:0.45"
+                Duration="0:0:0.15" />
+
+        </Storyboard>
+    </Window.Resources>
+
+ <Viewbox x:Name="WindowRoot" Stretch="Uniform"
+          RenderOptions.BitmapScalingMode="HighQuality"
+          SnapsToDevicePixels="True">
+        <Grid x:Name="DesignViewport"
+			  Panel.ZIndex="1"
+			  Width="1920"
+			  Height="1080"
+			  RenderOptions.BitmapScalingMode="HighQuality"
+			  SnapsToDevicePixels="True">
+            <Canvas x:Name="FloatingAllMemoCanvas"
+                Panel.ZIndex="1000"
+                IsHitTestVisible="True"/>
+            <Image x:Name="DotFallbackImage"
+			   Source="pack://application:,,,/images/dot.png"
+			   Width="1920"
+			   Height="1080"
+			   Stretch="Fill"
+			   Panel.ZIndex="-1"
+			   IsHitTestVisible="False"/>
+		<Image x:Name="MuteFallbackImage"
+			   Source="pack://application:,,,/images/mute.png"
+			   Width="1920"
+			   Height="1080"
+			   Stretch="Fill"
+			   Visibility="Collapsed"
+			   Panel.ZIndex="-1"
+			   IsHitTestVisible="False"/>
+
+		<!-- Background Video -->
+		<MediaElement x:Name="BackgroundMedia" Source="images/dot.mp4" 
+					  Width="1920" Height="1080"
+					  Stretch="Fill" LoadedBehavior="Manual" UnloadedBehavior="Stop" 
+					  IsMuted="True" Visibility="Visible" Panel.ZIndex="0" MediaEnded="BackgroundMedia_MediaEnded"
+					  ScrubbingEnabled="True" Opacity="1" IsHitTestVisible="False"/>
+		<MediaElement x:Name="BackgroundMediaAlt" Source="images/dot.mp4" 
+					  Width="1920" Height="1080"
+					  Stretch="Fill" LoadedBehavior="Manual" UnloadedBehavior="Stop" 
+					  IsMuted="True" Visibility="Collapsed" Panel.ZIndex="0" MediaEnded="BackgroundMediaAlt_MediaEnded"
+					  ScrubbingEnabled="True" Opacity="1" IsHitTestVisible="False"/>
+
+		<MediaElement x:Name="MuteMedia"
+					  Source="images/mute.mp4"
+					  Width="1920" Height="1080"
+					  Stretch="Fill"
+					  LoadedBehavior="Manual"
+					  UnloadedBehavior="Stop"
+					  IsMuted="True"
+					  Visibility="Collapsed"
+					  Opacity="1"
+					  Panel.ZIndex="0"
+					  IsHitTestVisible="False"
+					  MediaEnded="MuteMedia_MediaEnded"
+					  ScrubbingEnabled="True"/>
+		<MediaElement x:Name="MuteMediaAlt"
+					  Source="images/mute.mp4"
+					  Width="1920" Height="1080"
+					  Stretch="Fill"
+					  LoadedBehavior="Manual"
+					  UnloadedBehavior="Stop"
+					  IsMuted="True"
+					  Visibility="Collapsed"
+					  Opacity="1"
+					  Panel.ZIndex="0"
+					  IsHitTestVisible="False"
+					  MediaEnded="MuteMediaAlt_MediaEnded"
+					  ScrubbingEnabled="True"/>
+
+		<Image x:Name="MuteOverlayImage"
+			   Source="pack://application:,,,/images/mute_over.png"
+			   Width="1920"
+			   Height="1080"
+			   Stretch="Fill"
+			   Visibility="Collapsed"
+			   Panel.ZIndex="1"
+			   IsHitTestVisible="False"/>
+
+		<Grid x:Name="UiLayer" Panel.ZIndex="2">
+        <TextBox x:Name="BackgroundTextBox"
+                 Visibility="Collapsed"
+                 IsEnabled="False"
+                 Width="520"
+                 Height="150"
+                 HorizontalAlignment="Left"
+                 VerticalAlignment="Top"
+                 Margin="80,180,0,0"
+                 Panel.ZIndex="2"
+                 Background="Transparent"
+                 Foreground="White"
+                 CaretBrush="White"
+                 BorderThickness="0"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 FontSize="100"
+                 FontFamily="{StaticResource ShinonomeFont}"
+                 Text=""
+                 >
+            <TextBox.Effect>
+                <DropShadowEffect Color="#02072D" BlurRadius="0" ShadowDepth="2" Opacity="1"/>
+            </TextBox.Effect>
+            <TextBox.RenderTransform>
+                <TransformGroup>
+                    <SkewTransform x:Name="BackgroundTextSkew" AngleY="-4"/>
+                    <RotateTransform x:Name="BackgroundTextRotate" Angle="-1"/>
+                    <ScaleTransform x:Name="BackgroundTextScale" ScaleX="1" ScaleY="1"/>
+                </TransformGroup>
+            </TextBox.RenderTransform>
+        </TextBox>
+
+		<Image x:Name="PauseIcon" Source="pack://application:,,,/images/pause.png" 
+			   Stretch="Fill" Panel.ZIndex="1" Visibility="Collapsed" IsHitTestVisible="False"/>
+
+        <Image x:Name="CommentPauseIcon" Source="pack://application:,,,/images/comment_pause.png" 
+               Stretch="Fill" Panel.ZIndex="1" Visibility="Collapsed" IsHitTestVisible="False"/>
+
+        <Image x:Name="CommentOffIcon" Source="pack://application:,,,/images/comment_off.png"
+               Stretch="Fill" Panel.ZIndex="1" Visibility="Collapsed" IsHitTestVisible="False"/>
+
+		<Image x:Name="LiveOnIcon" Source="pack://application:,,,/images/liveon.png"
+			   Width="1920" Height="1080"
+			   HorizontalAlignment="Right"
+			   VerticalAlignment="Top"
+			   Visibility="Collapsed"
+			   Panel.ZIndex="10"
+			   IsHitTestVisible="False"/>
+
+
+            
+            
+        
+            
+            
+        
+		<!-- Digital Clock -->
+		<!-- FontFamilyを正しく読み込むには、プロジェクトにFontsフォルダがあり、PressStart2P-Regular.ttf(など)が配置されていて、Build ActionがResourceになっている必要があります -->
+		<TextBlock x:Name="DigitalClock"
+				   HorizontalAlignment="Right"
+				   VerticalAlignment="Top"
+				   Margin="0,100,70,0" 
+				   FontSize="45" 
+				   Foreground="#aeb8e2"
+				   FontFamily="./Fonts/#Press Start 2P"
+				   Panel.ZIndex="5">
+			<!-- 影（ドロップシャドウ）による青のぼかした縁取り -->
+			<TextBlock.Effect>
+				<DropShadowEffect Color="#00BFFF" 
+								  BlurRadius="15" 
+								  ShadowDepth="0" 
+								  Opacity="1"/> 
+			</TextBlock.Effect>
+			<!-- 3D回転効果（PlaneProjectionのように見せるTransform） -->
+			<TextBlock.RenderTransform>
+				<TransformGroup>
+					<!-- スキュー（傾き）やスケールを組み合わせて疑似的な3D回転を表現 -->
+					<SkewTransform AngleY="3.8" /> <!-- 縦方向の傾き（X軸回転風） -->
+					<!-- 他にも ScaleTransform や RotateTransform を追加して調整可能 -->
+				</TransformGroup>
+			</TextBlock.RenderTransform>
+		</TextBlock>
+
+                <TextBlock x:Name="DigitalDate"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Margin="0,60,160,0" 
+                   FontSize="30" 
+                   Foreground="#aeb8e2"
+                   FontFamily="{StaticResource ShinonomeFont}"
+                   Panel.ZIndex="5">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#00BFFF" BlurRadius="15" ShadowDepth="0" Opacity="1"/>
+                    </TextBlock.Effect>
+                    <TextBlock.RenderTransform>
+                        <TransformGroup>
+                            <SkewTransform AngleY="3." />
+                        </TransformGroup>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+
+
+                <TextBlock x:Name="LiveElapsedClock"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Margin="0,30,1650,0"
+                   FontSize="28"
+                   Foreground="#aeb8e2"
+                   FontFamily="./Fonts/#Press Start 2P"
+                   Panel.ZIndex="5"
+                   Visibility="Collapsed">
+            <TextBlock.Effect>
+                <DropShadowEffect Color="#00BFFF" BlurRadius="15" ShadowDepth="0" Opacity="1"/>
+            </TextBlock.Effect>
+            <TextBlock.RenderTransform>
+                <TransformGroup>
+                    <SkewTransform AngleY="-2" />
+                </TransformGroup>
+            </TextBlock.RenderTransform>
+        </TextBlock>
+
+        <TextBlock x:Name="RecordingElapsedClock"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Margin="0,160,48,0"
+                   FontSize="24"
+                   Foreground="#ff5959"
+                   FontFamily="./Fonts/#Press Start 2P"
+                   Panel.ZIndex="5"
+                   Visibility="Collapsed">
+            <TextBlock.Effect>
+                <DropShadowEffect Color="#400000" BlurRadius="12" ShadowDepth="0" Opacity="1"/>
+            </TextBlock.Effect>
+            <TextBlock.RenderTransform>
+                <TransformGroup>
+                    <SkewTransform AngleY="3.8" />
+                </TransformGroup>
+            </TextBlock.RenderTransform>
+        </TextBlock>
+
+
+
+
+
+        <Grid Width="320" HorizontalAlignment="Right" Margin="0,500,1250,0">
+             <!-- 阪神スコア -->
+             <TextBlock x:Name="HanshinScoreHome"
+                HorizontalAlignment="Left"
+                Width="110"
+                TextAlignment="Right"
+                FontSize="40"
+                Foreground="#aeb8e2"
+                Panel.ZIndex="10"
+                FontFamily="./Fonts/#Press Start 2P"
+                Margin="15,-3,0,0">
+
+                <TextBlock.RenderTransform>
+                    <TransformGroup>
+                        <SkewTransform AngleY="-5.0" />
+                    </TransformGroup>
+                </TextBlock.RenderTransform>
+
+             </TextBlock>
+
+             <!-- 真ん中の横線 -->
+             <TextBlock Text="-"
+                HorizontalAlignment="Center"
+                Width="40"
+                TextAlignment="Center"
+                FontSize="40"
+                Foreground="#aeb8e2"
+                Panel.ZIndex="10"
+                FontFamily="./Fonts/#Press Start 2P"
+                Margin= "0,-13,8,0 ">
+
+                <TextBlock.RenderTransform>
+                    <TransformGroup>
+                        <SkewTransform AngleY="-6.0" />
+                            <RotateTransform x:Name="HanshinScoreRotate"
+                                Angle="0"
+                                CenterX="0.5"
+                                CenterY="0.5" />
+                    </TransformGroup>
+                </TextBlock.RenderTransform>
+
+             </TextBlock>
+
+
+             <!-- 相手スコア -->
+             <TextBlock x:Name="HanshinScoreAway"
+                HorizontalAlignment="Left"
+                Margin="187,-20,0,0"
+                Width="140"
+                TextAlignment="Left"
+                FontSize="40"
+                Foreground="#aeb8e2"
+                Panel.ZIndex="10"
+                FontFamily="./Fonts/#Press Start 2P">
+
+                <TextBlock.RenderTransform>
+                    <TransformGroup>
+                        <SkewTransform AngleY="-5.0" />
+                    </TransformGroup>
+                </TextBlock.RenderTransform>
+
+             </TextBlock>
+
+        </Grid>
+
+        <!-- Chat Overlay for Application -->
+		<!-- 器(Border)は十分な広さを確保し、クリップされないように背景を透明のまま大きくします -->
+		<!-- IsHitTestVisible="False" により、この領域内でのクリック判定を無効化し、下のボタン等にイベントを通します -->
+        <Border x:Name="ChatOverlayArea" 
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+				Margin="0,60,1250,0"
+                Width="600"
+				Height="460"
+				IsHitTestVisible="False"
+				Panel.ZIndex="0">
+                    <wv2:WebView2CompositionControl x:Name="ChatWebView" DefaultBackgroundColor="Transparent" IsHitTestVisible="False"/>
+		</Border>
+
+
+        
+            
+        <!-- 通知 -->
+		<ItemsControl x:Name="NotificationList" Panel.ZIndex="45"
+					  HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0">
+			<ItemsControl.ItemsPanel>
+				<ItemsPanelTemplate>
+					<StackPanel Orientation="Vertical"/>
+				</ItemsPanelTemplate>
+			</ItemsControl.ItemsPanel>
+			<ItemsControl.ItemTemplate>
+				<DataTemplate>
+					<Border CornerRadius="0" Padding="30,25" MinWidth="400" MaxWidth="700" 
+							Background="{Binding BackgroundBrush}" Margin="{Binding CurrentMargin}" Opacity="{Binding CurrentOpacity}">
+						<Border.Effect>
+							<DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="5" Opacity="0.5"/>
+						</Border.Effect>
+						<Grid MaxWidth="640">
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto"/>
+								<RowDefinition Height="Auto"/>
+							</Grid.RowDefinitions>
+							<Button Content="×" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top"
+									Panel.ZIndex="2"
+									Background="Transparent" Foreground="White" BorderThickness="0" Click="NotificationClose_Click"/>
+							<emoji:TextBlock Text="{Binding Header}" Foreground="White" FontSize="28" Margin="0,0,30,8"
+									   FontFamily="{StaticResource ShinonomeFont}" 
+									   TextWrapping="Wrap">
+								<emoji:TextBlock.Effect>
+									<DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="0" Opacity="1"/>
+								</emoji:TextBlock.Effect>
+							</emoji:TextBlock>
+							<emoji:TextBlock Grid.Row="1" Text="{Binding Message}" Foreground="White" FontSize="26" TextWrapping="Wrap"
+									   FontFamily="{StaticResource ShinonomeFont}">
+								<emoji:TextBlock.Effect>
+									<DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="0" Opacity="1"/>
+								</emoji:TextBlock.Effect>
+							</emoji:TextBlock>
+						</Grid>
+					</Border>
+				</DataTemplate>
+			</ItemsControl.ItemTemplate>
+		</ItemsControl>
+
+		<!-- Dynamic Overlay Controls (Pause.png etc) -->
+		<Canvas Panel.ZIndex="40" IsHitTestVisible="False">
+		</Canvas>
+
+        <Canvas x:Name="FloatingMemoCanvas" Panel.ZIndex="150"/>
+
+		<!-- Normal floating buttons -->
+		<Canvas Panel.ZIndex="15">
+            <Button x:Name="BtnShowDateOnly" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="48" Height="34" Canvas.Right="410" Canvas.Top="190" Click="BtnShowDateOnly_Click"/>
+            <Button x:Name="BtnShowClockOnly" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="48" Height="34" Canvas.Right="350" Canvas.Top="190" Click="BtnShowClockOnly_Click"/>
+            <Button x:Name="BtnShowDateAndClock" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="48" Height="34" Canvas.Right="384" Canvas.Top="234" Click="BtnShowDateAndClock_Click"/>
+
+            <!-- チャット停止 ボタン -->
+            <Button x:Name="BtnPauseChat" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                    Width="50" Height="65" Canvas.Right="1855" Canvas.Top="235" Click="BtnPauseChat_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+            <!-- メモ ボタン -->
+            <Button x:Name="BtnShowMemos" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                    Width="105" Height="110" Canvas.Right="1100" Canvas.Top="105" Click="BtnShowMemos_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+            <!-- タスクパネルを開く透明ボタン -->
+            <Button x:Name="BtnShowTasks" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="205" Height="100" Canvas.Right="480" Canvas.Top="65" Click="BtnShowTasks_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+            <Button x:Name="BtnShowTasks1" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="90" Height="100" Canvas.Right="480" Canvas.Top="155" Click="BtnShowTasks_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+            <Button x:Name="BtnShowTasks2" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="90" Height="40" Canvas.Right="520" Canvas.Top="155" Click="BtnShowTasks_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+            <!-- チャットONOFFボタン -->
+            <Button x:Name="BtnToggleChatVisibility" Style="{StaticResource InvisibleRoundButtonStyle}"
+                    Width="135" Height="65" Canvas.Right="1406" Canvas.Top="0" Click="BtnToggleChatVisibility_Click" Panel.ZIndex="100">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+			<!-- 設定ボタン (Invisible hit area, position and size adjustable via Canvas.Right/Top/Width/Height) -->
+			<Button x:Name="BtnSettings" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                    Width="90" Height="100" Canvas.Right="225" Canvas.Top="640" Click="BtnSettings_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="0"/>
+                </Button.LayoutTransform>
+            </Button>
+
+
+                    <!-- OBS Mic Mute Toggle Button -->
+            <Button x:Name="BtnObsMuteToggle" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                    Width="110" Height="320" Canvas.Right="1193" Canvas.Top="615" Click="BtnObsMuteToggle_Click">
+                <Button.LayoutTransform>
+                    <RotateTransform Angle="44"/>
+                </Button.LayoutTransform>
+            </Button>
+
+			<!-- Audio Controls Container -->
+			<Canvas x:Name="AudioControlsCanvas" Canvas.Right="93" Canvas.Top="515" Width="110" Height="70" ClipToBounds="False">
+                <!-- Volume Control Buttons -->
+                <Button x:Name="BtnVolumeUp" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                        Width="30" Height="30" Click="BtnVolumeUp_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+                <Button x:Name="BtnVolumeDown" Style="{StaticResource InvisibleRoundButtonStyle}" 
+                        Width="30" Height="30" Canvas.Top="45" Click="BtnVolumeDown_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+                
+                <!-- BtnAudio (Play/Pause) Moved to the right of volume keys -->
+                <Button x:Name="BtnAudio" Style="{StaticResource InvisibleRoundButtonStyle}" Width="36" Height="42" Canvas.Left="50" Canvas.Top="8" Click="BtnAudio_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+            </Canvas>
+                   
+
+                    <!-- スパチャ確認用 (Positioned at the bottom) 
+                    <StackPanel Canvas.Right="20" Canvas.Bottom="20">
+                        <Button Content="Test SC ¥200" Style="{StaticResource ModernButtonStyle}" Margin="0,5" Click="TestSC200_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+				<Button Content="Test SC ¥2,000" Style="{StaticResource ModernButtonStyle}" Margin="0,5" Click="TestSC2000_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+				<Button Content="Test Member Join" Style="{StaticResource ModernButtonStyle}" Margin="0,5" Click="TestMemberJoin_Click">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+				<Button Content="Test Member Gift" Style="{StaticResource ModernButtonStyle}" Margin="0,5" Click="TestMemberGift_Click1">
+                    <Button.LayoutTransform>
+                        <RotateTransform Angle="0"/>
+                    </Button.LayoutTransform>
+                </Button>
+			</StackPanel>
+            -->
+		</Canvas>
+
+		<!-- Popup Overlay for Settings -->
+		<Border x:Name="SettingsPopup" Panel.ZIndex="50" Background="#80000000" Visibility="Collapsed">
+            <Grid>
+			    <Border Background="#222222" BorderBrush="#444444" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
+				    <StackPanel Width="450">
+					    <TextBlock Text="設定" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+
+                        <Button Content="使い方を見る"
+                            Style="{StaticResource ModernButtonStyle}"
+                            HorizontalAlignment="Center"
+                            Click="BtnHowTo_Click"
+                            Margin="0,0,0,20"/>
+                                <TextBlock Text="※8月26日更新" Foreground="Yellow" Margin="0,0,0,5" HorizontalAlignment="Center"/>
+
+
+                        <Separator Background="#444444" Margin="0,0,0,20"/>                        <TextBlock Text="自動接続用 チャンネルURL:" Foreground="White" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <TextBox x:Name="TxtChannelUrl" Width="300" Height="30" VerticalContentAlignment="Center" Margin="0,0,10,0" CaretBrush="Black"/>
+                            <Button x:Name="BtnConnectChat" Content="接続" Style="{StaticResource ModernButtonStyle}" Margin="0,0,5,0" Click="BtnConnectChat_Click"/>
+                            <Button x:Name="BtnDisconnectChat" Content="切断" Style="{StaticResource ModernButtonStyle}" Background="#CC3333" Click="BtnDisconnectChat_Click" IsEnabled="False"/>
+                        </StackPanel>
+
+                                <CheckBox x:Name="ChkAutoConnect" Content="ライブ開始時にコメント欄を自動表示する" Foreground="White" IsChecked="True" Margin="0,0,0,20"/>
+                        <CheckBox x:Name="ChkStartWithWindows" Content="バックグラウンド起動する(PC起動時にも自動で起動します)" Foreground="White" Margin="0,0,0,20"/>
+<TextBlock Text="タイムスタンプショートカットキー:" Foreground="White" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <TextBox x:Name="TxtMemoShortcutKey" Width="220" Height="30" Text="Ctrl+Shift+M"
+                                     VerticalContentAlignment="Center" Foreground="White" Background="#2D2D2D"
+                                     BorderBrush="#666666" BorderThickness="1" Padding="8,4" IsReadOnly="True"
+                                     PreviewKeyDown="TxtMemoShortcutKey_PreviewKeyDown"/>
+                            <TextBlock Text="（ここを選択してキーを押す）" Foreground="#BBBBBB"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </StackPanel>
+                                                        <CheckBox x:Name="ChkSoundEffectsEnabled" Content="効果音を鳴らす" Foreground="White" IsChecked="True" Margin="0,0,0,20" Checked="ChkSoundEffectsEnabled_CheckedChanged" Unchecked="ChkSoundEffectsEnabled_CheckedChanged"/>
+                                <CheckBox x:Name="ChkNotificationSoundEnabled" Content="通知の効果音を鳴らす(上の「効果音を鳴らす」もオンにする必要があります)" IsChecked="True" Margin="0,0,0,20" Foreground="White" IsEnabled="{Binding IsChecked, ElementName=ChkSoundEffectsEnabled}"/>
+                                <CheckBox x:Name="ChkEnableSuperChatNotification" Content="スーパーチャット通知を表示" IsChecked="False" Margin="0,0,0,20" Foreground="White"/>
+                                <CheckBox x:Name="ChkEnableMemberNotification" Content="メンバーシップ通知を表示" IsChecked="False" Margin="0,0,0,20" Foreground="White"/>
+                                
+                                <TextBlock Text="表示モード:" Foreground="White" Margin="0,0,0,5"/>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <RadioButton x:Name="RbFullscreenMode"
+                                         Content="フルスクリーン"
+                                         GroupName="WindowMode"
+                                         Foreground="White"
+                                         Margin="0,0,24,0"
+                                         IsChecked="True"
+                                         Checked="WindowModeRadio_Checked"/>
+                            <RadioButton x:Name="RbWindowedMode"
+                                         Content="ウィンドウ"
+                                         GroupName="WindowMode"
+                                         Foreground="White"
+                                         Checked="WindowModeRadio_Checked"/>
+                            <RadioButton x:Name="RbWindowed1920Mode"
+                                         Content="1920×1080ウィンドウ"
+                                         GroupName="WindowMode"
+                                         Foreground="White"
+                                         Margin="24,0,0,0"
+                                         Checked="WindowModeRadio_Checked"/>
+                        </StackPanel>
+
+                        <TextBlock Text="マウスカーソル:" Foreground="White" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <RadioButton x:Name="RbDefaultCursor"
+                                         Content="通常マウスカーソル"
+                                         GroupName="CursorMode"
+                                         Foreground="White"
+                                         Margin="0,0,24,0"
+                                         IsChecked="True"
+                                         Checked="CursorModeRadio_Checked"/>
+                            <RadioButton x:Name="RbUrotaCursor"
+                                         Content="うろたマウスカーソル"
+                                         GroupName="CursorMode"
+                                         Foreground="White"
+                                         Checked="CursorModeRadio_Checked"/>
+                        </StackPanel>
+
+					    <TextBlock Text="サーバー構成:" Foreground="White" Margin="0,0,0,5"/>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+                                    <TextBlock Text="localhost:" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="22"/>
+						            <TextBox x:Name="TxtServerPort" Width="80" Height="30" VerticalContentAlignment="Center" Margin="0,0,10,0" Text="2345" CaretBrush="Black"/>
+                            <!-- Update server setting changes -->
+                            <Button Content="適用/再起動" Style="{StaticResource ModernButtonStyle}" Click="BtnRestartServer_Click"/>
+					    </StackPanel>
+
+                        <TextBlock Text="OBS WebSocket:                     パスワード" Foreground="White" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                    <TextBox x:Name="TxtObsWebSocketUrl" Width="200" Height="30" VerticalContentAlignment="Center" Margin="0,0,10,0" Text="192.168.10.106:4455" CaretBrush="Black"/>
+                            <PasswordBox x:Name="TxtObsPassword" Width="160" Height="30" VerticalContentAlignment="Center" Margin="0,0,10,0" PasswordChar="*" />
+                        </StackPanel>
+
+					    
+
+					    <Separator Background="#444444" Margin="0,0,0,20"/>
+
+					    <TextBlock Text="OBSチャット設定" Foreground="White" Margin="0,0,0,10" FontWeight="Bold"/>
+					    <Button Content="OBSチャットを編集" Style="{StaticResource ModernButtonStyle}" HorizontalAlignment="Left" Click="BtnEditObs_Click" Margin="0,0,0,20"/>
+
+                        <Separator Background="#444444" Margin="0,0,0,20"/>
+                                <Button Content="アプリを再起動" Style="{StaticResource ModernButtonStyle}" Background="#FF8C00" Click="BtnRestartApp_Click" Margin="0,0,0,20"/>
+                        <Separator Background="#444444" Margin="0,0,0,20"/>
+                                <UniformGrid Columns="3">
+							<Button Content="最小化" Style="{StaticResource ModernButtonStyle}" Background="#444444" Click="MinimizeButton_Click" Margin="5"/>
+							<Button Content="アプリを閉じる" Style="{StaticResource ModernButtonStyle}" Background="#CC3333" Click="CloseButton_Click" Margin="5"/>
+							<Button x:Name="BtnCloseSettings" Content="閉じる" Style="{StaticResource ModernButtonStyle}" Click="BtnCloseSettings_Click" Margin="5"/>
+						</UniformGrid>
+					</StackPanel>
+				</Border>
+			</Grid>
+		</Border>
+
+		<!-- Popup Overlay for Memos -->
+
+        <!-- タスク専用パネル -->
+        <Border x:Name="TaskPopup" Panel.ZIndex="60" Background="#99000000" Visibility="Collapsed">
+            <Grid>
+                <Border Width="1120" Height="860" Background="#222222" BorderBrush="#444444" BorderThickness="1"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="タスク" Foreground="White" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="×" ToolTip="閉じる" Width="30" Height="30" Background="#444444" Foreground="White" BorderThickness="0" Click="BtnCloseTaskPanel_Click"/>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="TasksPanel"/>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+		<Border x:Name="MemoPopup" Panel.ZIndex="50" Background="Transparent" IsHitTestVisible="True" Visibility="Collapsed">
+            <Grid>
+                <Border Background="#222222" BorderBrush="#444444" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30" Width="1480" Height="1020">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TextBlock Text="メモ帳" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <CheckBox x:Name="ChkPopOutTopmost" Content="個別ウィンドウを常に最前面に表示" Foreground="White" IsChecked="True" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Grid.Row="1" Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="1*"/>
+                                <ColumnDefinition Width="2*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Texts Memos -->
+                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                <Grid Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="テキストメモ" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" FontSize="16"/>
+                                        <Button Content="⧉ 全て" Width="60" Height="24" Margin="5,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnPopOutTextMemos_Click" ToolTip="全メモを別ウィンドウで表示"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        
+                                        <Button Content="＋" Width="24" Height="24" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnAddTextMemo_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Button Content="📁" Width="28" Height="28" Margin="0,0,6,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnOpenTextFolders_Click" ToolTip="メモのフォルダ"/>
+                                    <TextBlock x:Name="TextActiveFolderText" Text="[未分類]" Foreground="#BBBBBB" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBox x:Name="TextMemoSearchBox" Width="180" Height="28" TextChanged="TextMemoSearchBox_TextChanged" ToolTip="テキストメモを検索" Foreground="White" Background="#2D2D2D" BorderBrush="#666666" BorderThickness="1" Padding="7,5"/>
+                                    <Button Content="×" Width="28" Height="28" Margin="4,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnClearTextMemoSearch_Click" ToolTip="検索をクリア"/>
+                                </StackPanel>
+                                <ScrollViewer VerticalScrollBarVisibility="Hidden" Height="782">
+                                    <StackPanel x:Name="TextMemosPanel"/>
+                                </ScrollViewer>
+                            </StackPanel>
+
+                            <!-- List Memos (Checkboxes) -->
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <Grid Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="チェックリストメモ" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" FontSize="16"/>
+                                        <Button Content="⧉ 全て" Width="60" Height="24" Margin="5,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnPopOutListMemos_Click" ToolTip="全リストメモを別ウィンドウで表示"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        
+                                        <Button Content="＋" Width="24" Height="24" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnAddListMemo_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Button Content="📁" Width="28" Height="28" Margin="0,0,6,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnOpenListFolders_Click" ToolTip="リストメモのフォルダ"/>
+                                    <TextBlock x:Name="ListActiveFolderText" Text="[未分類]" Foreground="#BBBBBB" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBox x:Name="ListMemoSearchBox" Width="180" Height="28" TextChanged="ListMemoSearchBox_TextChanged" ToolTip="チェックリストメモを検索" Foreground="White" Background="#2D2D2D" BorderBrush="#666666" BorderThickness="1" Padding="7,5"/>
+                                    <Button Content="×" Width="28" Height="28" Margin="4,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnClearListMemoSearch_Click" ToolTip="検索をクリア"/>
+                                </StackPanel>
+                                <ScrollViewer VerticalScrollBarVisibility="Hidden" Height="782">
+                                    <StackPanel x:Name="ListMemosPanel">
+                                    <!-- Initial item example with individual popout button -->
+                                                
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </StackPanel>
+
+                            <!-- Timestamp List -->
+                            <StackPanel Grid.Column="2" Margin="20,0,0,0">
+                                <Grid Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="タイムスタンプ" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" FontSize="16"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="⧉ 全て" ToolTip="全タイムスタンプを別ウィンドウで表示" Width="60" Height="24" Background="#3A3F4A" Foreground="White" BorderThickness="0" Margin="0,0,4,0" Click="BtnPopOutAllTimestamps_Click"/>
+                                        <Button x:Name="TimestampSourceDisplayModeButton"
+                                                Content="ⓘ 出典:クリック"
+                                                ToolTip="タイムスタンプの出典表示方法を切り替え"
+                                                Height="24"
+                                                MinWidth="120"
+                                                Background="#3A3F4A"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                Margin="0,0,4,0"
+                                                Click="TimestampSourceDisplayModeButton_Click"/>
+                       
+                                        <Button Content="＋" Width="24" Height="24" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnAddTimestampBox_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <Button Content="📁" Width="28" Height="28" Margin="0,0,6,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnOpenTimestampFolders_Click" ToolTip="タイムスタンプのフォルダ"/>
+                                    <TextBlock x:Name="TimestampActiveFolderText" Text="[未分類]" Foreground="#BBBBBB" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBox x:Name="TimestampSearchBox" Width="180" Height="28" TextChanged="TimestampSearchBox_TextChanged" ToolTip="タイムスタンプを検索" Foreground="White" Background="#2D2D2D" BorderBrush="#666666" BorderThickness="1" Padding="7,5"/>
+                                    <Button Content="×" Width="28" Height="28" Margin="4,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="BtnClearTimestampSearch_Click" ToolTip="検索をクリア"/>
+                                    <Button x:Name="TimestampFilterButton" Content="🔽" Width="28" Height="28" Margin="4,0,0,0" Background="#3A3F4A" Foreground="White" BorderThickness="0" Click="TimestampFilterButton_Click" ToolTip="配信URL・録画ファイル名でフィルター"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <RadioButton x:Name="RbTimestampLive" Content="配信" GroupName="TimestampSource" Foreground="White" Margin="0,0,16,0" IsChecked="True"/>
+                                    <RadioButton x:Name="RbTimestampRecording" Content="録画" GroupName="TimestampSource" Foreground="White"/>
+                                </StackPanel>
+                                <ScrollViewer VerticalScrollBarVisibility="Hidden" Height="780">
+                                    <StackPanel x:Name="TimestampPanel"/>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Grid.Row="2">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="全エクスポート" Style="{StaticResource ModernButtonStyle}" Margin="4" Click="BtnExportAllMemos_Click"/>
+                                <Button Content="全メモ" Style="{StaticResource ModernButtonStyle}" Margin="4" Click="BtnExportTextMemos_Click"/>
+                                <Button Content="全リスト" Style="{StaticResource ModernButtonStyle}" Margin="4" Click="BtnExportListMemos_Click"/>
+                                <Button Content="全タイムスタンプ" Style="{StaticResource ModernButtonStyle}" Margin="4" Click="BtnExportTimestamps_Click"/>
+                                <Button Content="閉じる" Style="{StaticResource ModernButtonStyle}" Width="150" Margin="4" Click="BtnCloseMemoPanel_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Canvas x:Name="FloatingmemoCanvas"
+                        Panel.ZIndex="155"
+                        />
+
+                </Grid>
+        </Border>
+
+		<!-- Popup Overlay for OBS Detail Settings -->
+		<Border x:Name="ObsSettingsDetail" Panel.ZIndex="60" Background="#CC000000" Visibility="Collapsed">
+			<Border Background="#222222" BorderBrush="#444444" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
+				<Grid Width="800">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="350"/>
+						<ColumnDefinition Width="*"/>
+					</Grid.ColumnDefinitions>
+
+					<StackPanel Grid.Column="0" Margin="0,0,20,0">
+						<TextBlock Text="OBS チャット詳細設定" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,0,0,20" HorizontalAlignment="Center"/>
+
+						<CheckBox x:Name="ChkShowUser" Content="ユーザー名を表示する" Foreground="White" IsChecked="True" Margin="0,0,0,15" Checked="ObsSettingsChanged" Unchecked="ObsSettingsChanged"/>
+
+						<TextBlock Text="表示幅 (折り返し位置):" Foreground="White" Margin="0,0,0,5"/>
+						<DockPanel Margin="0,0,0,15">
+							<TextBlock Text="{Binding Value, ElementName=SliderObsWidth}" Foreground="White" Width="40" DockPanel.Dock="Right" TextAlignment="Right" VerticalAlignment="Center"/>
+							<Slider x:Name="SliderObsWidth" Minimum="200" Maximum="1000" Value="400" ValueChanged="ObsSettingsChanged"/>
+						</DockPanel>
+
+						<TextBlock Text="文字色 (Hex):" Foreground="White" Margin="0,0,0,5"/>
+						<TextBox x:Name="TxtObsColor" Text="#FFFFFF" Height="30" VerticalContentAlignment="Center" Margin="0,0,0,20" CaretBrush="Black" TextChanged="ObsSettingsChanged"/>
+
+						<Button Content="戻る" Style="{StaticResource ModernButtonStyle}" Click="BtnCloseObsDetail_Click" HorizontalAlignment="Right"/>
+					</StackPanel>
+
+					<Border Grid.Column="1" Background="Black" BorderBrush="#444444" BorderThickness="1">
+						<Grid>
+							<TextBlock Text="Preview" Foreground="#444444" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+							<wv2:WebView2 x:Name="ObsPreviewWebView" DefaultBackgroundColor="Transparent"/>
+						</Grid>
+					</Border>
+				</Grid>
+			</Border>
+		</Border>
+
+        <!-- Embedded Timestamp Editor: MainWindow と同じ HWND 内に表示するため OBS のウィンドウキャプチャにも含まれる。 -->
+        <Border x:Name="TimestampEditorPopup" Panel.ZIndex="70" Background="#80000000" Visibility="Collapsed">
+            <Border x:Name="TimestampEditorPopupBorder"
+                    Width="720" Height="760" Background="#222222" BorderBrush="#444444" BorderThickness="1" Padding="18" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MouseLeftButtonDown="TimestampEditorPopupBorder_MouseLeftButtonDown"
+                    MouseMove="TimestampEditorPopupBorder_MouseMove"
+                    MouseLeftButtonUp="TimestampEditorPopupBorder_MouseLeftButtonUp">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="TimestampEditorPopupTranslate" X="0" Y="0"/>
+                </Border.RenderTransform>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                            <TextBlock Text="タイムスタンプ元：" Foreground="#CCCCCC" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <RadioButton x:Name="RbTimestampPopupLive" Content="配信" GroupName="TimestampPopupSource" Foreground="White" Margin="0,0,12,0" Checked="RbTimestampPopupLive_Checked"/>
+                            <RadioButton x:Name="RbTimestampPopupRecording" Content="録画" GroupName="TimestampPopupSource" Foreground="White" Margin="0,0,12,0" Checked="RbTimestampPopupRecording_Checked"/>
+                            <Button Content="別ウィンドウに切り離す" Style="{StaticResource ModernButtonStyle}" Margin="4,0,0,0" Click="BtnDetachTimestampPopup_Click"/>
+                            <Button Content="閉じる" Style="{StaticResource ModernButtonStyle}" Margin="4,0,0,0" Click="BtnCloseTimestampPopup_Click"/>
+                            <Button Content="+" ToolTip="タイムスタンプボックスを追加" Click="BtnAddTimestampBox_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="TimestampEditorPopupTitle" Text="タイムスタンプ" Foreground="White" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="TimestampEditorPopupPanel" Margin="0,0,4,0"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Border>
+
+        <Border x:Name="ConfirmPopup" Panel.ZIndex="90" Background="#B0000000" Visibility="Collapsed">
+            <Grid>
+                <Border Width="420"
+                        Background="#20242C"
+                        BorderBrush="#566177"
+                        BorderThickness="1"
+                        Padding="24"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="確認" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <TextBlock x:Name="ConfirmMessage" Foreground="#E8ECF5" FontSize="16" TextWrapping="Wrap" Margin="0,0,0,22"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="キャンセル" Style="{StaticResource ModernButtonStyle}" Background="#3A3F4A" Margin="0,0,10,0" Click="ConfirmNo_Click"/>
+                            <Button Content="OK" Style="{StaticResource ModernButtonStyle}" Background="#B23535" Click="ConfirmYes_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+		</Grid>
+	</Grid>
+</Viewbox>
+</Window>
